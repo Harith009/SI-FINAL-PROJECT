@@ -7,8 +7,9 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const PORT = 3000;
 const app = express();
+const path = require('path')
 const multer  = require('multer')
-const upload = multer({ dest: 'uploads/' })
+
 var fs = require('fs');
 
 
@@ -19,7 +20,7 @@ const options = {
             version: '1.0.0',
             description: 'API provides information about face from a provided image'
         },
-        host: 'localhost:3000',
+        host: '137.184.50.131:3000',
         basePath: '/'
     },
     apis: ['./server.js']
@@ -27,7 +28,26 @@ const options = {
 
 const specs = swaggerJsdoc(options);
 
+const multer_storage = multer.diskStorage({
+    destination: './html/images', 
+    filename: (req, file, cb) => {
+        return cb(null, `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`)
+    }
+});
 
+const upload = multer({
+    storage: multer_storage,
+    limits: {
+        fileSize: 6000000
+    },
+    fileFilter: function (req, file, cb) {
+        var ext = path.extname(file.originalname);
+        if (ext !== '.png' && ext !== '.jpg' && ext !== '.gif' && ext !== '.jpeg' && ext !== '.bmp' && ext !== '.pdf' && ext !== '.tiff') {
+            return cb(new  multer.MulterError('Only JPEG, PNG, BMP, PDF, and TIFF are allowed!'));
+        }
+        cb(null, true)
+    },
+});
 // able to see swagger UI at <url>:port/docs
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs));
 
@@ -152,45 +172,25 @@ app.post("/detectface", async (req, res, next) => {
  *            required: True
  *            type: file
  */
- app.post("/detectUploadedFace", upload.single('file'), async (req, res, next) => {
-    // let imageUrl=fs.createReadStream(req.file.path,'utf8')
-    let imageUrl=req.file.path;
-    // if(!req.body.imageUrl){
-    //     return res.status(400).json({
-    //         message : "Bad Request or invalid request"
-    //     });
-
-    // }else {
-    //     imageUrl= req.body.imageUrl
-    // }
-
-    console.log(imageUrl);
-    let result = axios({
-        method: 'post',
-        url: endpoint,
-        params : {
-            detectionModel: 'detection_02',
-            returnFaceId: true
-        },
-        data: {
-            url: imageUrl,
-        },
-        headers: { 'Content-Type': 'application/json','Ocp-Apim-Subscription-Key': subscriptionKey }
-    }).then(function (response) {
-    
-        console.log(response.data);
-        if(response.data.length!=0){
-            res.status(200).json(response.data);
-        }else {
-            res.status(200).json({
-                "face": "No face detected"
-            });
-        }
-    }).catch(function (error) {
-        console.log(error)
-        res.status(400).json({
-            error
-        })
+app.post("/detectUploadedFace", upload.single('file'),  (req, res) => {
+let url_of_image = `http://137.184.50.131/images/${req.file.filename}`;     
+let newOptions = {
+    paraparams : {
+        detectionModel: 'detection_02',
+        returnFaceId: true
+    },
+    headers: { 'Content-Type': 'application/json','Ocp-Apim-Subscription-Key': subscriptionKey }
+}
+let data = {
+    url: url_of_image,
+};    
+axios.post(endpoint, data, newOptions)
+    .then(resp => {
+        res.send(resp.data);
+    })
+    .catch(error=>{
+        console.log(error);
+        res.status(error).json(error.response.data)
     });
 });
 
@@ -316,8 +316,6 @@ app.post("/detectfaceemotions", async (req, res, next) => {
         url: endpoint,
         params : {
             detectionModel: 'detection_01',
-            // returnFaceId: true,
-            // returnFaceLandmarks: false,
             returnFaceAttributes: 'age, gender, headPose'
         },
         data: {
@@ -448,5 +446,5 @@ app.post("/findsimilar", async (req, res, next) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`API served at http://localhost:${PORT}`);
+    console.log(`API served at http://137.184.50.131:${PORT}`);
 });
