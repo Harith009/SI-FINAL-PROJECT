@@ -182,7 +182,7 @@ let newOptions = {
     headers: { 'Content-Type': 'application/json','Ocp-Apim-Subscription-Key': subscriptionKey }
 }
 let data = {
-    url: url_of_image,
+    url: url_of_image
 };    
 axios.post(endpoint, data, newOptions)
     .then(resp => {
